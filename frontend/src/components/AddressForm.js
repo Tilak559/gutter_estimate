@@ -90,7 +90,10 @@ function AddressForm({ onSubmit, loading }) {
           {[
             '28 Cragswood Road, New Paltz, NY 12561',
             '508 Washington Avenue, Beacon, NY 12508',
-            '4 Pattie Pl, Wappingers Falls, NY 12590'
+            '4 Pattie Pl, Wappingers Falls, NY 12590',
+            '28 Cragswood Road, New Paltz, NY 12561',
+            '14 Hideaway Ln Newburgh, NY 12550'
+
           ].map((example, index) => (
             <button
               key={index}

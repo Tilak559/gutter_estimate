@@ -124,7 +124,7 @@ function App() {
       <footer className="bg-gray-900 text-white py-8 mt-16">
         <div className="container mx-auto px-4 text-center">
           <p className="text-gray-400">
-            © 2024 Gutter Estimate Pro. Powered by AI and satellite imagery analysis.
+            © 2025 Gutter Estimate. Powered by Leashed AI.
           </p>
         </div>
       </footer>

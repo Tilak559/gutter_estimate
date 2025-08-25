@@ -11,12 +11,12 @@ function Header() {
               <Home className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Gutter Estimate Pro</h1>
+              <h1 className="text-xl font-bold text-gray-900">Gutter Estimate</h1>
               <p className="text-sm text-gray-600">AI-Powered Estimation System</p>
             </div>
           </div>
           
-          <nav className="hidden md:flex items-center space-x-8">
+          {/* <nav className="hidden md:flex items-center space-x-8">
             <a href="#features" className="text-gray-600 hover:text-primary-600 transition-colors flex items-center space-x-2">
               <MapPin className="h-4 w-4" />
               <span>Features</span>
@@ -25,7 +25,7 @@ function Header() {
               <BarChart3 className="h-4 w-4" />
               <span>About</span>
             </a>
-          </nav>
+          </nav> */}
           
           <div className="md:hidden">
             <button className="p-2 text-gray-600 hover:text-primary-600 transition-colors">

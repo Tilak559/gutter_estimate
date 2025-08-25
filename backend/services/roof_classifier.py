@@ -109,7 +109,6 @@ class RoofClassifierService:
                     "downspouts_estimate": gutter_estimate.downspouts_estimate,
                     "complexity_factor": gutter_estimate.complexity_factor
                 },
-                # **ADDED: Include image data for frontend display**
                 "images": {
                     "local_image_paths": image_processing_result.get("local_image_paths", []),
                     "base64_images": image_processing_result.get("base64_images", []),
@@ -497,7 +496,6 @@ class RoofClassifierService:
 
     
     def _create_analysis_prompt(self, building_raw: dict, data_layers_raw: dict, address: str, image_types: List[str]) -> str:
-        """Create a SIMPLE, focused prompt for roof classification with 80% data focus and 20% visual focus"""
         
         # Extract only essential data - segment count is the key
         roof_segments = building_raw.get('solarPotential', {}).get('roofSegmentStats', [])
@@ -506,44 +504,40 @@ class RoofClassifierService:
         # **SIMPLE RULE: Segment count determines roof type**
         segment_count = len(roof_segments)
         
-        # Create ultra-simple prompt
-        prompt = f"""
-You are a roofing expert. Classify this roof using 80% data analysis and 20% visual inspection.
-
-**CRITICAL RULE: Count the roof segments first, then classify:**
-
-**SEGMENT COUNT = ROOF TYPE:**
-- 1 segment = SHED or FLAT
-- 2 segments = GABLE (most common residential roof)
-- 3 segments = GABLE with dormer
-- 4+ segments = HIP roof
-- 6+ segments = COMPLEX roof
-
-**BUILDING DATA (80% of decision):**
-- Total roof segments: {segment_count}
-- Total roof area: {whole_roof_stats.get('groundAreaMeters2', 0):.1f} m²
-
-**SEGMENT DETAILS:**
-"""
+        # Create segment details string
+        segment_details = ""
+        for i, s in enumerate(roof_segments):
+            pitch = s.get('pitchDegrees', 0)
+            azimuth = s.get('azimuthDegrees', 0)
+            area = s.get('stats', {}).get('groundAreaMeters2', 0)
+            segment_details += f"- Segment {i+1}: Pitch={pitch:.1f}°, Azimuth={azimuth:.1f}°, Area={area:.1f} m²\n"
         
-        # Add only essential segment info
-        for i, segment in enumerate(roof_segments):
-            prompt += f"""
-        Segment {i+1}:
-- Pitch: {segment.get('pitchDegrees', 0):.1f}°
-- Azimuth: {segment.get('azimuthDegrees', 0):.1f}°
-- Area: {segment.get('stats', {}).get('groundAreaMeters2', 0):.1f} m²
-        """
-        
-        prompt += f"""
+        # Create the prompt using string concatenation to avoid f-string issues
+        prompt = f"""You are a professional roofing inspector. Your job is to classify the roof type.
 
-**VISUAL CHECK (20% of decision):**
-Look at the satellite image and verify:
-- Does the roof have 2 main slopes (gable) or 4+ slopes (hip)?
-- Is it a simple triangular shape (gable) or pyramid-like (hip)?
+### Step 1 — Use Data First (80% weight)
+- Total segments = {segment_count}
+- Whole roof ground area = {whole_roof_stats.get('groundAreaMeters2', 0):.1f} m²
 
-**FINAL CLASSIFICATION:**
-Based on {segment_count} segments, this is most likely a **{'GABLE' if segment_count <= 3 else 'HIP' if segment_count <= 5 else 'COMPLEX'}** roof.
+Segment details:
+{segment_details}
+
+**Rules based on segment count:**
+- 1 segment → Shed or Flat  
+- 2 segments → Gable  
+- 3 segments → Gable with dormer  
+- 4–5 segments → Hip  
+- 6+ segments → Complex  
+
+### Step 2 — Visual Confirmation (20% weight)
+Look at the satellite image (conceptually):
+- Gable = 2 dominant slopes forming a triangle shape  
+- Hip = 4+ slopes, pyramid-like, wrapping around  
+- Complex = multiple intersecting slopes, irregular  
+
+### Step 3 — Final Answer
+Combine both rules. If segment count and visual cues disagree, favor the **data-driven classification** but note the uncertainty.  
+Output only the final classification in ALL CAPS (e.g., GABLE, HIP, COMPLEX).  
 
 **RESPONSE FORMAT:**
 Return ONLY this JSON:
@@ -553,7 +547,6 @@ Return ONLY this JSON:
     "reasoning": "Brief explanation"
 }}
 
-**REMEMBER: 2 segments = GABLE, 4+ segments = HIP**
-        """
+**REMEMBER: 2 segments = GABLE, 4+ segments = HIP**"""
         
         return prompt

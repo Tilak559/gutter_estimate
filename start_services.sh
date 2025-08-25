@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 🏠 Gutter Estimate Pro - Service Startup Script
+# Gutter Estimate - Service Startup Script
 # This script starts both the backend API and frontend React app
 
 set -e  # Exit on any error
@@ -104,7 +104,7 @@ trap cleanup EXIT INT TERM
 # Main startup sequence
 main() {
     echo -e "${BLUE}"
-    echo "🏠 Gutter Estimate Pro - Service Startup"
+    echo "Gutter Estimate - Service Startup"
     echo "========================================"
     echo -e "${NC}"
     
@@ -201,12 +201,12 @@ main() {
     
     # Final status
     echo ""
-    echo -e "${GREEN}🎉 All services are running successfully!${NC}"
+    echo -e "${GREEN} All services are running successfully!${NC}"
     echo ""
     echo -e "${BLUE}Services:${NC}"
-    echo -e "  🔧 Backend API:  ${GREEN}http://localhost:8000${NC}"
-    echo -e "  📚 API Docs:     ${GREEN}http://localhost:8000/docs${NC}"
-    echo -e "  🎨 Frontend App: ${GREEN}http://localhost:3000${NC}"
+    echo -e "  Backend API:  ${GREEN}http://localhost:8000${NC}"
+    echo -e "  API Docs:     ${GREEN}http://localhost:8000/docs${NC}"
+    echo -e "  Frontend App: ${GREEN}http://localhost:3000${NC}"
     echo ""
     echo -e "${BLUE}Logs:${NC}"
     echo -e "  Backend:  ${YELLOW}tail -f backend.log${NC}"

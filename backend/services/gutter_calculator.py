@@ -70,16 +70,13 @@ class GutterCalculatorService:
             total_gutter_with_waste = total_gutter_ft_raw * (1 + dynamic_waste_factor)
             total_gutter_ft = math.ceil(total_gutter_with_waste)
             
-            # **CRITICAL FIX: Final validation to prevent overestimation**
             if perimeter_m > 0:
                 perimeter_ft = perimeter_m * 3.28084
-                # **Never let gutter estimate exceed 1.3x building perimeter**
-                max_gutter_ft = perimeter_ft * 1.3
+                max_gutter_ft = perimeter_ft * 1.5
                 if total_gutter_ft > max_gutter_ft:
-                    logger.warning(f"Gutter estimate ({total_gutter_ft}ft) exceeds max ({max_gutter_ft:.0f}ft) - capping to perimeter-based estimate")
-                    # Recalculate using perimeter-based method
-                    total_gutter_ft = math.ceil(perimeter_ft * 0.9 * (1 + dynamic_waste_factor))
-                    eave_length_ft = perimeter_ft * 0.9
+
+                    total_gutter_ft = math.ceil(perimeter_ft * 1.05 * (1 + dynamic_waste_factor))
+                    eave_length_ft = perimeter_ft * 1.05
             
             logger.info(f"Final gutter calculation: {total_eave_m:.1f}m eave → {total_gutter_ft}ft (waste: {dynamic_waste_factor:.1%})")
             
@@ -95,7 +92,7 @@ class GutterCalculatorService:
             )
             
             # Calculate estimated range with improved accuracy
-            range_percentage = 0.08 + (complexity_factor - 1.0) * 0.03  # Tighter range
+            range_percentage = 0.12 + (complexity_factor - 1.0) * 0.04 
             estimated_range = {
                 "min": max(1, int(total_gutter_ft * (1 - range_percentage))),
                 "max": int(total_gutter_ft * (1 + range_percentage)),
@@ -121,7 +118,6 @@ class GutterCalculatorService:
             raise Exception(f"Failed to calculate gutter estimate: {str(e)}")
     
     def _validate_roof_type(self, roof_type: str, roof_segments: List[Dict], building_center: Dict) -> str:
-        """Validate and correct roof type based on building geometry and segment analysis"""
         
         if not roof_segments:
             return roof_type
@@ -144,7 +140,7 @@ class GutterCalculatorService:
                 # Estimate building shape from segment distribution
                 if segment_count == 1:
                     if roof_type != "shed" and roof_type != "flat":
-                        return "shed"  # Single segment = shed roof
+                        return "shed" 
                 elif segment_count == 2:
                     if roof_type != "gable":
                         return "gable"  # Two segments = gable roof
@@ -158,22 +154,21 @@ class GutterCalculatorService:
         return roof_type
     
     def _calculate_building_perimeter(self, roof_segments: List[Dict], building_center: Dict, whole_roof_stats: Dict) -> Tuple[float, float]:
-        """Calculate accurate building perimeter using multiple methods"""
         
         latitude = building_center.get('latitude', 40.0) if building_center else 40.0
         meters_per_deg_lon, meters_per_deg_lat = self._calculate_meters_per_degree(latitude)
         
-        # **Method 1: Use whole roof stats if available (most accurate)**
+        # Method 1: Use whole roof stats if available (most accurate)
         if whole_roof_stats and whole_roof_stats.get('groundAreaMeters2'):
             ground_area = whole_roof_stats['groundAreaMeters2']
-            # **For typical homes, perimeter ≈ 4 * sqrt(area)**
+            # For typical homes, perimeter ≈ 4 * sqrt(area)
             estimated_perimeter = 4 * math.sqrt(ground_area)
-            logger.info(f"Using whole roof stats: {ground_area:.1f}m² → perimeter: {estimated_perimeter:.1f}m")
+            logger.info(f"Using whole roof stats: {ground_area:.1f}m2 → perimeter: {estimated_perimeter:.1f}m")
         else:
             ground_area = 0
             estimated_perimeter = 0
         
-        # **Method 2: Calculate from segment bounding boxes (more accurate)**
+        # Method 2: Calculate from segment bounding boxes (more accurate)
         if roof_segments:
             # Find the outer bounds of all segments
             all_lats = []
@@ -189,24 +184,24 @@ class GutterCalculatorService:
                 min_lat, max_lat = min(all_lats), max(all_lats)
                 min_lon, max_lon = min(all_lons), max(all_lons)
                 
-                # **Calculate perimeter from bounding box coordinates**
+                # Calculate perimeter from bounding box coordinates
                 lat_span = (max_lat - min_lat) * meters_per_deg_lat
                 lon_span = (max_lon - min_lon) * meters_per_deg_lon
                 bbox_perimeter = 2 * (lat_span + lon_span)
                 
                 logger.info(f"Bounding box perimeter: {bbox_perimeter:.1f}m (lat: {lat_span:.1f}m, lon: {lon_span:.1f}m)")
                 
-                # **Use bounding box perimeter if it's more reasonable**
+                # Use bounding box perimeter if it's more reasonable
                 if bbox_perimeter > 0 and (estimated_perimeter == 0 or abs(bbox_perimeter - estimated_perimeter) / estimated_perimeter < 0.3):
                     estimated_perimeter = bbox_perimeter
                     logger.info(f"Using bounding box perimeter: {estimated_perimeter:.1f}m")
         
-        # **Method 3: Fallback to area-based estimation**
+        # Method 3: Fallback to area-based estimation
         if estimated_perimeter == 0 and ground_area > 0:
             estimated_perimeter = 4 * math.sqrt(ground_area)
             logger.info(f"Fallback area-based perimeter: {estimated_perimeter:.1f}m")
         
-        # **Final validation: ensure perimeter is reasonable**
+        # Final validation: ensure perimeter is reasonable
         if estimated_perimeter > 0:
             # For typical homes, perimeter should be between 20m and 200m
             if estimated_perimeter < 20:
@@ -219,7 +214,6 @@ class GutterCalculatorService:
         return estimated_perimeter, ground_area
     
     def _process_roof_segments_improved(self, roof_segments: List[Dict], building_center: Dict, perimeter_m: float) -> List[Dict]:
-        """Process roof segments with improved accuracy using multiple calculation methods"""
         
         processed_segments = []
         latitude = building_center.get('latitude', 40.0) if building_center else 40.0
@@ -283,7 +277,7 @@ class GutterCalculatorService:
         return processed_segments
     
     def _calculate_eave_length_from_area(self, ground_area: float, pitch_degrees: float) -> float:
-        """Calculate eave length from ground area with pitch correction"""
+        
         if pitch_degrees <= 0:
             return math.sqrt(ground_area)  # Assume square for flat roofs
         
@@ -293,55 +287,38 @@ class GutterCalculatorService:
         return math.sqrt(ground_area / math.cos(pitch_rad))
     
     def _calculate_eave_length_improved(self, roof_type: str, processed_segments: List[Dict], perimeter_m: float, building_footprint_m2: float) -> Tuple[float, float]:
-        """Calculate total eave length using improved methods with cross-validation"""
         
         if not processed_segments:
             return 0.0, 1.0
         
-        # **CRITICAL FIX: For hip roofs, use building perimeter, not segment sum**
-        # Hip roofs need gutters on the outer edges, not the sum of all segment edges
         if roof_type == 'hip':
-            # **FIXED: Analyze the actual roof structure to determine gutter placement**
-            # Some hip roofs have gutters on only 2 sides (like gable roofs)
-            # This depends on the roof design and dormer layout
             
             if perimeter_m > 0:
-                # **NEW APPROACH: Analyze roof structure to determine actual gutter placement**
-                # For this specific house, gutters appear to go on only 2 sides
-                # This is common in hip roofs with dormers where gutters are only on the main slopes
-                
-                # Calculate the actual gutter length based on roof analysis
-                # For a hip roof with gutters on 2 sides (like a gable):
-                # Gutter length ≈ 0.5 × building perimeter (similar to gable roofs)
-                total_eave_m = perimeter_m * 0.5
+                total_eave_m = perimeter_m * 0.6
                 complexity_factor = 1.2  # Hip roofs are moderately complex
                 
                 logger.info(f"Hip roof with 2-side gutter placement detected - using gable-style calculation: {perimeter_m}m building → {total_eave_m:.1f}m gutter length")
                 return total_eave_m, complexity_factor
         
-        # **For other roof types, use segment-based calculation but with validation**
+        # For other roof types, use segment-based calculation but with validation
         elif roof_type == 'gable':
             # Gable roofs: gutters on 2 sides (front and back)
             if perimeter_m > 0:
-                # **FIXED: Gable roofs need gutters on 2 sides, not 60% of perimeter**
-                # For typical rectangular homes, gable sides are roughly 50% of perimeter
-                # This accounts for the fact that gutters go on the long sides only
-                total_eave_m = perimeter_m * 0.5
+                # Fixed: Gable roofs need gutters on 2 sides, not 60% of perimeter
+                total_eave_m = perimeter_m * 0.6
                 complexity_factor = 1.0  # Gable roofs are simple
                 logger.info(f"Gable roof - using perimeter estimate: {perimeter_m}m → eave: {total_eave_m:.1f}m")
                 return total_eave_m, complexity_factor
         
-        # **Fallback to segment-based calculation for other roof types**
+        # Fallback to segment-based calculation for other roof types
         # But with validation to prevent overestimation
         segment_eave_sum = sum(seg.get('eave_m', 0) for seg in processed_segments)
-        
-        # **CRITICAL: Cap segment sum to prevent overestimation**
+
         if perimeter_m > 0:
-            # Never let eave length exceed 1.2x building perimeter
-            max_eave_m = perimeter_m * 1.2
+            max_eave_m = perimeter_m * 1.4
             if segment_eave_sum > max_eave_m:
                 logger.warning(f"Segment eave sum ({segment_eave_sum:.1f}m) exceeds max ({max_eave_m:.1f}m) - capping to perimeter-based estimate")
-                segment_eave_sum = perimeter_m * 0.9
+                segment_eave_sum = perimeter_m * 1.05
         
         # Calculate complexity factor based on segment count and variation
         segment_count = len(processed_segments)
@@ -355,7 +332,6 @@ class GutterCalculatorService:
         return segment_eave_sum, complexity_factor
     
     def _calculate_complexity_factor(self, roof_type: str, processed_segments: List[Dict], validation_methods: int) -> float:
-        """Calculate complexity factor based on roof type and validation confidence"""
         
         base_complexity = 1.0
         
@@ -386,41 +362,34 @@ class GutterCalculatorService:
         return min(1.8, max(0.8, base_complexity))  # Clamp between 0.8 and 1.8
     
     def _calculate_dynamic_waste_factor(self, roof_type: str, complexity_factor: float, segment_count: int) -> float:
-        """Calculate dynamic waste factor based on roof complexity and features"""
-        
-        # **FIXED: More reasonable waste factors**
+
         # Roof type adjustments
         type_waste = {
-            'flat': 0.01,      # Flat roofs need less waste
-            'shed': 0.015,     # Simple shed roofs
-            'gable': 0.02,     # Standard gable
-            'gambrel': 0.025,  # Gambrel has more joints
-            'hip': 0.025,      # **FIXED: Reduced from 0.03 to 0.025 for hip roofs**
-            'mansard': 0.03,   # **FIXED: Reduced from 0.035 to 0.03**
-            'complex': 0.035,  # **FIXED: Reduced from 0.04 to 0.035**
-            'unknown': 0.02    # **FIXED: Reduced from 0.025 to 0.02**
+            'flat': 0.012,     
+            'shed': 0.018,     
+            'gable': 0.024,    
+            'gambrel': 0.03,   
+            'hip': 0.03,       
+            'mansard': 0.036,  
+            'complex': 0.042,  
+            'unknown': 0.024   
         }
         
-        base_waste = type_waste.get(roof_type, 0.02)
+        base_waste = type_waste.get(roof_type, 0.024)
         
-        # **FIXED: Reduced complexity adjustments**
-        complexity_waste = (complexity_factor - 1.0) * 0.01  # **Reduced from 0.02 to 0.01**
+        complexity_waste = (complexity_factor - 1.0) * 0.012  
         
-        # **FIXED: Reduced segment count adjustments**
-        segment_waste = max(0, (segment_count - 2) * 0.003)  # **Reduced from 0.005 to 0.003**
+        segment_waste = max(0, (segment_count - 2) * 0.0036)  
         
-        # **FIXED: Reduced corner adjustments**
         corner_waste = 0
         if roof_type in ['hip', 'mansard', 'complex']:
-            corner_waste = 0.005  # **Reduced from 0.01 to 0.005**
+            corner_waste = 0.006  
         
         total_waste = base_waste + complexity_waste + segment_waste + corner_waste
         
-        # **FIXED: Lower maximum waste cap**
-        return min(0.06, max(0.01, total_waste))  # **Reduced from 0.08 to 0.06**
+        return min(0.072, max(0.012, total_waste))  
     
     def _estimate_downspouts_improved(self, roof_type: str, total_eave_m: float, processed_segments: List[Dict]) -> int:
-        """Estimate downspouts with improved accuracy"""
         
         # Base rule: 1 downspout per 40-50 feet of gutter (more conservative)
         base_downspouts = max(2, math.ceil(total_eave_m * 3.28084 / 45))
@@ -444,7 +413,6 @@ class GutterCalculatorService:
     
     def _generate_warnings_improved(self, roof_type: str, total_gutter_ft: int, total_eave_m: float, 
                                    processed_segments: List[Dict], whole_roof_stats: Dict, perimeter_m: float) -> List[str]:
-        """Generate improved warnings and validation messages"""
         
         warnings = []
         
